@@ -1,0 +1,1 @@
+2026-10-26 · Claude · Day 1 local setup: requirements files, .gitignore, venv · kept

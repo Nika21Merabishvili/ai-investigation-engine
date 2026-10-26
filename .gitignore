@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets: never commit
+.env
+.env.neon
+
+# Generated data (rebuilt by scripts), except the company docs
+data/*
+!data/company/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,4 @@
+-r requirements.txt
+datasets
+fpdf2
+pytest

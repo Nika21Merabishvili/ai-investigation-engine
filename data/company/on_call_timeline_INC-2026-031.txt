@@ -1,0 +1,17 @@
+INC-2026-031 - ON-CALL TIMELINE (exported from the incident channel)
+
+On call: Daniel Okafor (SRE). Incident commander: Lena Fischer. All times are UTC on 18 March 2026.
+
+09:25  fraud-scorer p99 latency starts climbing as morning traffic grows. No alert fires.
+09:40  First duplicate charge captured (found later in the ledger).
+10:22  Page: ledger-service duplicate-amount anomaly, 37 suspected duplicates in one reconciliation run.
+10:31  Lena Fischer declares SEV-1 and opens INC-2026-031.
+10:40  api-gateway shows a high rate of HTTP 504 on POST /v1/payments.
+10:48  Priya Raman: fraud-scorer v7 p99 is about 6 s.
+10:53  Daniel Okafor starts the fraud-scorer rollback to v6 using the runbook, emergency change CHG-0422.
+11:05  Rollback complete.
+11:18  fraud-scorer p99 back under 400 ms. Last 504 on POST /v1/payments.
+11:33  Last duplicate charge captured.
+11:50  Tomas Novak: SDK retries arrive 15 minutes after the 504, but idempotency keys expire after 10 minutes since CHG-0412.
+12:40  payments-api v4.2.1 deployed with a 48-hour idempotency TTL (CHG-0423).
+13:05  No new duplicates for 90 minutes. Incident resolved.

@@ -1,0 +1,15 @@
+API-GATEWAY - SERVICE NOTES
+
+Owner: Platform team. Last reviewed: 14 March 2026.
+
+WHAT IT DOES
+api-gateway is the public entry point for all merchant API calls. It terminates TLS, checks the merchant API key, applies rate limits and forwards requests to internal services.
+
+TIMEOUTS
+The upstream timeout is 5 seconds for every route. If an internal service does not answer within 5 seconds, the gateway returns HTTP 504 Gateway Timeout to the merchant. The gateway does not cancel the upstream request, so the internal service may still finish its work.
+
+RATE LIMITS
+Each merchant may send up to 80 requests per second. The limit was raised from 50 on 12 March 2026 (CHG-0415).
+
+LOGS
+Access logs are kept for 30 days.

@@ -1,0 +1,18 @@
+title: ledger-service Service Notes
+format: txt
+
+LEDGER-SERVICE - SERVICE NOTES
+
+Owner: Finance Engineering. Last reviewed: 2 March 2026.
+
+WHAT IT DOES
+ledger-service keeps a double-entry record of every charge, refund and payout. Every capture in payments-api creates two ledger entries: a debit on the cardholder side and a credit on the merchant balance.
+
+RECONCILIATION
+A reconciliation job runs every 15 minutes, at 07, 22, 37 and 52 minutes past the hour. It compares ledger entries with the acquirer capture reports and looks for suspected duplicates: the same card, merchant and amount captured twice within 60 minutes.
+
+ALERTS
+The duplicate-amount anomaly alert fires when one reconciliation run finds more than 20 suspected duplicates. It pages the SRE on call.
+
+DATA
+Ledger entries are never deleted. A refund is a new pair of entries that reverses the original charge.

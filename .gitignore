@@ -11,6 +11,8 @@ __pycache__/
 # Generated data (rebuilt by scripts), except the company docs
 data/*
 !data/company/
+!data/company_src/
+
 
 # Editor / OS
 .vscode/

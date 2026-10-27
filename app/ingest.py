@@ -4,7 +4,8 @@
 load_document() turns PDF, DOCX or TXT/Markdown bytes into a LoadedDocument.
 content_hash() fingerprints the text; save_document() uses it to skip duplicates
 and to update a document when the same file name comes back with new content.
-The chunkers (paragraph_chunks, fixed_chunks) go in this file too.
+paragraph_chunks() and fixed_chunks() split the text into "Title: ...\n<body>" chunks.
+ingest() saves a document with its paragraph chunks and their embeddings, all or nothing.
 """
 import hashlib
 import io
@@ -17,9 +18,12 @@ from uuid import UUID
 import docx
 import psycopg
 from docx.table import Table
+from pgvector import HalfVector
 from psycopg.types.json import Jsonb
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
+
+from app.embed import embed_passages
 
 SUPPORTED_FORMATS = {".pdf": "pdf", ".docx": "docx", ".txt": "txt", ".md": "md"}
 
@@ -186,3 +190,88 @@ def save_document(conn: psycopg.Connection, doc: LoadedDocument, source: str,
         (source, file_name, doc.title, doc.file_format, digest, protected, Jsonb(doc.metadata)),
     ).fetchone()
     return "added", row[0]
+
+
+# ---------- Chunkers ----------
+# Every chunk is f"Title: {title}\n{body}". Size limits count only the body words (body.split()).
+
+def _word_windows(words: list[str], size: int, overlap: int = 0) -> list[str]:
+    """Slide a window of `size` words forward by size - overlap and join each window with spaces."""
+    if not 0 <= overlap < size:
+        raise ValueError(f"need 0 <= overlap < size (got size={size}, overlap={overlap})")
+    windows = []
+    for start in range(0, len(words), size - overlap):
+        windows.append(" ".join(words[start:start + size]))
+        if start + size >= len(words):
+            break  # this window already reaches the last word; another would only repeat it
+    return windows
+
+
+def fixed_chunks(text: str, title: str, size: int = 100, overlap: int = 20) -> list[str]:
+    """Windows of `size` words, each starting with the last `overlap` words of the one before."""
+    return [f"Title: {title}\n{body}" for body in _word_windows(text.split(), size, overlap)]
+
+
+def paragraph_chunks(text: str, title: str, max_words: int = 200) -> list[str]:
+    """Pack consecutive blank-line-separated blocks into chunks of at most `max_words` words.
+
+    A heading ("#...") starts a new chunk, unless the block before it is only a heading,
+    so "# Report" then "## Summary" stay with their text. A single block longer than max_words
+    (common with pypdf, which often returns no blank lines) is cut into max_words pieces.
+    """
+    blocks = [block.strip() for block in re.split(r"\n\s*\n", text)]
+    blocks = [block for block in blocks if block]
+
+    chunks: list[str] = []
+    current: list[str] = []
+    count = 0
+
+    def flush() -> None:
+        nonlocal current, count
+        if current:
+            chunks.append(f"Title: {title}\n" + "\n\n".join(current))
+        current, count = [], 0
+
+    for block in blocks:
+        words = block.split()
+        after_bare_heading = bool(current) and _is_heading_only(current[-1])
+        if (block.startswith("#") and not after_bare_heading) or count + len(words) > max_words:
+            flush()
+        if len(words) > max_words:
+            chunks.extend(f"Title: {title}\n{piece}" for piece in _word_windows(words, max_words))
+            continue
+        current.append(block)
+        count += len(words)
+    flush()  # the last chunk
+    return chunks
+
+
+def _is_heading_only(block: str) -> bool:
+    """True for a block of nothing but heading lines, like "# Incident Report"."""
+    return all(line.startswith("#") for line in block.split("\n"))
+
+
+# ---------- Ingest: document + chunks + embeddings ----------
+
+def ingest(conn: psycopg.Connection, doc: LoadedDocument, source: str, protected: bool = False,
+           embed=embed_passages) -> tuple[str, UUID, int]:
+    """Save a document with its paragraph chunks and their embeddings, all or nothing.
+
+    Returns (status, document_id, number_of_chunks); status comes from save_document().
+    `embed` turns a list of texts into vectors: the upload route will use the model
+    directly, the bulk script passes a version that checks the embedding cache first.
+    """
+    with conn.transaction():  # an error anywhere below also undoes the document row
+        status, doc_id = save_document(conn, doc, source, protected)
+        if status == "duplicate":
+            return status, doc_id, 0
+        chunks = paragraph_chunks(doc.text, doc.title)
+        vectors = embed(chunks)
+        with conn.cursor() as cur:
+            cur.executemany(
+                """INSERT INTO chunks (document_id, chunk_index, strategy, text, text_hash, embedding)
+                   VALUES (%s, %s, 'paragraph', %s, %s, %s)""",
+                [(doc_id, i, text, content_hash(text), HalfVector(vector))
+                 for i, (text, vector) in enumerate(zip(chunks, vectors))],
+            )
+    return status, doc_id, len(chunks)

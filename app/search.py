@@ -84,7 +84,13 @@ def rrf(rankings: list[list[int]], weights: list[float] | None = None, k: int = 
     returns:  (chunk_id, score) pairs, highest score first.
     score(id) = sum, over the rankings that contain id, of weight / (k + rank), where rank starts at 1.
     """
-    raise NotImplementedError("Write rrf() yourself; tests/test_search.py tells you when it's right.")
+    if weights is None:
+        weights = [1.0] * len(rankings)
+    scores: dict[int, float] = {}
+    for ranking, weight in zip(rankings, weights):
+        for rank, chunk_id in enumerate(ranking, start=1):
+            scores[chunk_id] = scores.get(chunk_id, 0) + weight / (k + rank)
+    return sorted(scores.items(), key=lambda item: item[1], reverse=True)
 
 
 def hybrid_search(conn: psycopg.Connection, question: str, k: int = 8) -> list[dict]:

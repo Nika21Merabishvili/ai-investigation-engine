@@ -3,3 +3,4 @@
 2026-10-29 · Claude · answer_eval.py (resumable run, offline score) + metric stubs and tests; metrics written by me · kept
 2026-10-29 · Claude Code · verified Day 4 files and question facts, ran and scored the 90-answer evaluation · kept
 2026-10-29 · Claude · drafted hand grades for the 40 NovaPay answers (rule + reasons in company_answers_for_grading.md) · kept
+2026-10-29 · Claude Code · drafted error analysis (10 failures, 4 groups) in eval/results/error_analysis.md · kept

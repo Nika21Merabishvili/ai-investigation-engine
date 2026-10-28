@@ -44,26 +44,40 @@ def normalize_answer(text: str) -> str:
     """Lowercase, remove punctuation, remove the words a/an/the, collapse whitespace.
     "The Eiffel Tower!" -> "eiffel tower";  "1,284 customers." -> "1284 customers"
     """
-    raise NotImplementedError("Write normalize_answer() yourself")
+    text = text.lower()
+    text = "".join(ch for ch in text if ch not in string.punctuation)
+    text = re.sub(r"\b(a|an|the)\b", " ", text)  # \b: whole words only, so "apple" keeps its "a"
+    return " ".join(text.split())
 
 
 def exact_match(prediction: str, gold: str) -> float:
     """1.0 if both strings are equal after normalize_answer(), else 0.0."""
-    raise NotImplementedError("Write exact_match() yourself")
+    return float(normalize_answer(prediction) == normalize_answer(gold))
 
 
 def token_f1(prediction: str, gold: str) -> float:
     """Word-overlap F1 of the normalized strings. A repeated word counts as often as BOTH have it.
     "the Eiffel Tower in Paris" vs "Eiffel Tower": common 2, precision 2/4, recall 2/2 -> 0.667
     """
-    raise NotImplementedError("Write token_f1() yourself")
+    pred_words = normalize_answer(prediction).split()
+    gold_words = normalize_answer(gold).split()
+    common = sum((Counter(pred_words) & Counter(gold_words)).values())  # & keeps each word's smaller count
+    if common == 0:
+        return 0.0  # also covers an empty prediction, so no division by zero
+    precision = common / len(pred_words)
+    recall = common / len(gold_words)
+    return 2 * precision * recall / (precision + recall)
 
 
 def gold_in_answer(prediction: str, gold: str) -> float:
     """1.0 if the normalized gold appears in the normalized prediction as whole words.
     "No, they were not." contains "no" -> 1.0;  "I do not know" does not -> 0.0
     """
-    raise NotImplementedError("Write gold_in_answer() yourself")
+    gold_text = normalize_answer(gold)
+    if not gold_text:
+        return 0.0  # a gold of only articles or punctuation would otherwise match every answer
+    # The spaces on both sides make it whole words: " no " is not inside " i do not know ".
+    return float(f" {gold_text} " in f" {normalize_answer(prediction)} ")
 
 
 def citation_accuracy(cited: list[str], gold: list[str]) -> float | None:
@@ -71,4 +85,9 @@ def citation_accuracy(cited: list[str], gold: list[str]) -> float | None:
     ["A", "A", "X"] with gold ["A", "B"] -> documents {A, X} -> 0.5
     Nothing cited -> None. Empty gold -> raise ValueError.
     """
-    raise NotImplementedError("Write citation_accuracy() yourself")
+    if not gold:
+        raise ValueError("gold is empty: a question with nothing to find can't be scored")
+    cited_set = set(cited)
+    if not cited_set:
+        return None  # nothing cited (e.g. a correct abstention): not scored, rather than 0.0
+    return len(cited_set & set(gold)) / len(cited_set)

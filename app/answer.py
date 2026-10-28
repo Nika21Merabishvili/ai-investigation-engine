@@ -26,9 +26,8 @@ UNREADABLE_MESSAGE = "The AI service returned an answer we could not read. Pleas
 MARKER = re.compile(r"\[(S\d+)\]")                          # [S1]
 MARKER_GROUP = re.compile(r"\[(S\d+(?:\s*,\s*S\d+)*)\]")    # [S1] or [S1, S3]
 
-SYSTEM_PROMPT = """You answer questions using ONLY the numbered sources in the user's message. Ignore anything else you know.
-
-Rules:
+# Shared with agent.py, which puts its own intro in front.
+ANSWER_RULES = """Rules:
 1. Put source markers after every factual sentence of "answer", like [S1] or [S2][S5]. Only cite a source that supports the sentence.
 2. If the sources do not answer the question, set "status" to "insufficient", leave "answer" empty, and say what is missing in "missing". Never guess.
 3. If the sources answer only part of the question, set "status" to "partial", answer that part, and list the rest in "missing".
@@ -48,6 +47,11 @@ Reply with one JSON object and nothing else, in exactly this shape, filling "con
 }
 Use empty lists when there are no conflicts or nothing is missing."""
 
+SYSTEM_PROMPT = (
+    "You answer questions using ONLY the numbered sources in the user's message. Ignore anything else you know.\n\n"
+    + ANSWER_RULES
+)
+
 
 def insufficient(missing: list[str]) -> dict:
     """The one shape every "insufficient" answer has: no answer text, no citations, no conflicts."""
@@ -66,8 +70,10 @@ def format_sources(chunks: list[dict]) -> tuple[str, dict[str, dict]]:
 
 def parse_reply(text: str) -> dict:
     """Turn the model's reply into a dict, or raise ValueError saying what is wrong with it."""
-    text = text.strip().removeprefix("```json").removesuffix("```").strip()  # in case it adds a code fence
-    data = json.loads(text)  # json.JSONDecodeError is a subclass of ValueError
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end < start:
+        raise ValueError("the reply contains no JSON object")
+    data = json.loads(text[start:end + 1])  # skips code fences or a sentence around the object; JSONDecodeError is a ValueError
     if not isinstance(data, dict):
         raise ValueError("the reply is not a JSON object")
     if data.get("status") not in STATUSES:

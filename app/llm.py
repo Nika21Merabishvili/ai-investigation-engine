@@ -35,7 +35,7 @@ def _client() -> OpenAI:
         api_key=config.GEMINI_API_KEY,
         base_url=config.GEMINI_BASE_URL,
         timeout=config.LLM_TIMEOUT_SECONDS,
-        max_retries=0,  # one retry policy only: the loop in chat_json()
+        max_retries=0,  # one retry policy only: the loop in _create()
     )
 
 
@@ -44,15 +44,27 @@ def chat_json(messages: list[dict]) -> str:
 
     Parsing stays with the caller (answer.py), because only the caller knows the expected shape.
     """
+    response = _create(messages=messages, response_format={"type": "json_object"})
+    return response.choices[0].message.content or ""
+
+
+def chat_with_tools(messages: list[dict], tools: list[dict], tool_choice: str = "auto"):
+    """Send the messages with tools and return the whole assistant message.
+
+    msg.tool_calls is a list, or None when the model answers in msg.content.
+    Append it with messages.append(msg.model_dump(exclude_none=True)), not rebuilt by hand:
+    Gemini puts thought signatures in each tool call's extra_content and rejects a follow-up without them.
+    No response_format here; agent.py asks for JSON in the prompt instead.
+    """
+    return _create(messages=messages, tools=tools, tool_choice=tool_choice).choices[0].message
+
+
+def _create(**kwargs):
+    """One chat completion with the retry policy in the module docstring."""
     waits = [*config.LLM_RETRY_WAITS, None]  # None marks the last attempt
     for attempt, wait in enumerate(waits, start=1):
         try:
-            response = _client().chat.completions.create(
-                model=config.GEMINI_MODEL,
-                messages=messages,
-                response_format={"type": "json_object"},
-            )
-            return response.choices[0].message.content or ""
+            return _client().chat.completions.create(model=config.GEMINI_MODEL, **kwargs)
         except openai.APITimeoutError as error:
             # APITimeoutError is a subclass of APIConnectionError, so this clause must come first.
             log.warning("LLM timed out after %s s", config.LLM_TIMEOUT_SECONDS)

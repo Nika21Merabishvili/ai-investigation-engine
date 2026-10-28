@@ -4,6 +4,9 @@
 YOU WRITE THESE (about 5 lines each). tests/test_metrics.py tells you when they're right.
 Day 4 adds citation accuracy, exact match and token F1 to this file.
 """
+import re
+import string
+from collections import Counter
 
 
 def recall_at_k(retrieved: list[str], gold: list[str], k: int) -> float:
@@ -34,3 +37,38 @@ def mrr(retrieved: list[str], gold: list[str]) -> float:
         if title in gold_set:
             return 1 / rank
     return 0.0
+
+# ---- Day 4: answer metrics ----
+
+def normalize_answer(text: str) -> str:
+    """Lowercase, remove punctuation, remove the words a/an/the, collapse whitespace.
+    "The Eiffel Tower!" -> "eiffel tower";  "1,284 customers." -> "1284 customers"
+    """
+    raise NotImplementedError("Write normalize_answer() yourself")
+
+
+def exact_match(prediction: str, gold: str) -> float:
+    """1.0 if both strings are equal after normalize_answer(), else 0.0."""
+    raise NotImplementedError("Write exact_match() yourself")
+
+
+def token_f1(prediction: str, gold: str) -> float:
+    """Word-overlap F1 of the normalized strings. A repeated word counts as often as BOTH have it.
+    "the Eiffel Tower in Paris" vs "Eiffel Tower": common 2, precision 2/4, recall 2/2 -> 0.667
+    """
+    raise NotImplementedError("Write token_f1() yourself")
+
+
+def gold_in_answer(prediction: str, gold: str) -> float:
+    """1.0 if the normalized gold appears in the normalized prediction as whole words.
+    "No, they were not." contains "no" -> 1.0;  "I do not know" does not -> 0.0
+    """
+    raise NotImplementedError("Write gold_in_answer() yourself")
+
+
+def citation_accuracy(cited: list[str], gold: list[str]) -> float | None:
+    """Share of the cited DOCUMENTS that are gold; each document counts once.
+    ["A", "A", "X"] with gold ["A", "B"] -> documents {A, X} -> 0.5
+    Nothing cited -> None. Empty gold -> raise ValueError.
+    """
+    raise NotImplementedError("Write citation_accuracy() yourself")

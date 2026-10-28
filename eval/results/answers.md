@@ -42,3 +42,16 @@ s = simple mode, a = agent mode.
 - **Exact match / Token F1** use SQuAD-style normalization after removing the [S#] markers. The answers are full sentences, so exact match is close to 0 by design; **Gold answer in the answer** checks whether the normalized gold answer appears in the answer as whole words.
 - **Abstained** means status `insufficient`. **Reported a conflict** means the `conflicts` list is not empty; whether it is the right conflict is graded by hand.
 - **error** means the LLM call failed even after retries; it counts as a wrong answer, and agent-mode errors have no retrieval scores because their search trace was lost.
+
+## Hand grades: NovaPay questions (20 per mode)
+
+| Question type | simple: correct / partly / wrong | agent: correct / partly / wrong |
+| --- | ---: | ---: |
+| simple | 5 / 0 / 0 | 5 / 0 / 0 |
+| multi_doc | 2 / 2 / 1 | 2 / 3 / 0 |
+| contradiction | 4 / 1 / 0 | 3 / 2 / 0 |
+| unanswerable | 3 / 2 / 0 | 3 / 2 / 0 |
+| all 20 | 14 / 5 / 1 | 13 / 7 / 0 |
+| Contradiction flagged | 4/5 | 3/5 |
+
+Grading rule and per-answer reasons: `company_answers_for_grading.md`. Grades drafted by Claude.

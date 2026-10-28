@@ -13,9 +13,9 @@ For each answer write: correct / partly correct / wrong, and for contradiction q
 | all 20 | 14 / 5 / 1 | 13 / 7 / 0 |
 | Contradiction flagged | 4/5 | 3/5 |
 
-**Grading rule.** Correct: the answer gives what the question asks, matching the reference. Partly correct: part of it is right, or the text is right but the status is wrong. Wrong: no answer, or a wrong fact. Citations are judged separately by the script's citation accuracy, not here. Contradiction questions: correct means both sides are stated.
+**Grading rule.** Correct: the answer gives what the question asks, matching the reference. Partly correct: part of it is right, or the text is right but the status is wrong. Wrong: no answer, or a wrong fact. Citations are judged separately by the script's citation accuracy. Contradiction questions: correct means both sides are stated.
 
-Grades drafted by Claude, checked by: ___
+Grades drafted by Claude; reviewed by: ___
 
 ## co_simple_01 · simple · expected: answer
 

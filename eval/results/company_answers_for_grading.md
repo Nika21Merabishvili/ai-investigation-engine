@@ -2,6 +2,21 @@
 
 For each answer write: correct / partly correct / wrong, and for contradiction questions whether the conflict was flagged (yes / no).
 
+## Summary
+
+| Question type | simple: correct / partly / wrong | agent: correct / partly / wrong |
+| --- | ---: | ---: |
+| simple | 5 / 0 / 0 | 5 / 0 / 0 |
+| multi_doc | 2 / 2 / 1 | 2 / 3 / 0 |
+| contradiction | 4 / 1 / 0 | 3 / 2 / 0 |
+| unanswerable | 3 / 2 / 0 | 3 / 2 / 0 |
+| all 20 | 14 / 5 / 1 | 13 / 7 / 0 |
+| Contradiction flagged | 4/5 | 3/5 |
+
+**Grading rule.** Correct: the answer gives what the question asks, matching the reference. Partly correct: part of it is right, or the text is right but the status is wrong. Wrong: no answer, or a wrong fact. Citations are judged separately by the script's citation accuracy, not here. Contradiction questions: correct means both sides are stated.
+
+Grades drafted by Claude, checked by: ___
+
 ## co_simple_01 · simple · expected: answer
 
 **Question:** On what date was fraud-scorer model v7 deployed?
@@ -15,14 +30,14 @@ For each answer write: correct / partly correct / wrong, and for contradiction q
 Fraud-scorer model v7 was deployed on 17 March 2026 [S2][S4][S8].
 
 - Cited: fraud-scorer Service Documentation, Incident Report INC-2026-031, Change Advisory Board Notes - March 2026
-- **Grade:** ___
+- **Grade:** correct (right date; one citation (incident report) has no deploy date, which citation accuracy already counts)
 
 ### agent: answered
 
 Fraud-scorer model v7 was deployed on 17 March 2026 [S1][S2].
 
 - Cited: fraud-scorer Service Documentation, Production change log - March 2026
-- **Grade:** ___
+- **Grade:** correct
 
 ## co_simple_02 · simple · expected: answer
 
@@ -37,14 +52,14 @@ Fraud-scorer model v7 was deployed on 17 March 2026 [S1][S2].
 The api-gateway waits 5 seconds for every route before it gives up and returns HTTP 504 Gateway Timeout [S1].
 
 - Cited: api gateway service doc
-- **Grade:** ___
+- **Grade:** correct
 
 ### agent: answered
 
 The api-gateway waits for 5 seconds for a response from an internal service before it gives up and returns an HTTP 504 Gateway Timeout [S1].
 
 - Cited: api gateway service doc
-- **Grade:** ___
+- **Grade:** correct
 
 ## co_simple_03 · simple · expected: answer
 
@@ -59,14 +74,14 @@ The api-gateway waits for 5 seconds for a response from an internal service befo
 Incident INC-2026-031 was resolved at 13:05 UTC on 18 March 2026 [S1][S2][S3].
 
 - Cited: on call timeline INC 2026 031, Incident Report INC-2026-031, NovaPay status page - 18 March 2026
-- **Grade:** ___
+- **Grade:** correct (no false conflict)
 
 ### agent: answered
 
 Incident INC-2026-031 was resolved at 13:05 UTC on 18 March 2026 [S1][S3].
 
 - Cited: on call timeline INC 2026 031, Incident Report INC-2026-031
-- **Grade:** ___
+- **Grade:** correct (no false conflict)
 
 ## co_simple_04 · simple · expected: answer
 
@@ -81,14 +96,14 @@ Incident INC-2026-031 was resolved at 13:05 UTC on 18 March 2026 [S1][S3].
 After fraud-scorer model v7 went live, its p99 latency reached about 6 seconds during the morning peak [S1][S2].
 
 - Cited: fraud-scorer Service Documentation, Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___
+- **Grade:** correct
 
 ### agent: answered
 
 After model v7 went live, fraud-scorer's p99 latency at the morning peak reached 6 seconds [S1][S2].
 
 - Cited: fraud-scorer Service Documentation, Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___
+- **Grade:** correct
 
 ## co_simple_05 · simple · expected: answer
 
@@ -103,14 +118,14 @@ After model v7 went live, fraud-scorer's p99 latency at the morning peak reached
 The SDK places the timed-out request in a local retry queue and sends it again after 15 minutes [S1].
 
 - Cited: NovaPay Server SDK - Retry Behaviour
-- **Grade:** ___
+- **Grade:** correct
 
 ### agent: answered
 
 The NovaPay server SDK waits 15 minutes before retrying a payment request that resulted in a timeout (HTTP 504) [S1][S3].
 
 - Cited: NovaPay Server SDK - Retry Behaviour, Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___
+- **Grade:** correct
 
 ## co_multi_01 · multi_doc · expected: answer
 
@@ -126,7 +141,7 @@ CHG-0412 (9 March) lowered the idempotency-key TTL in payments-api from 24 hours
 
 - Cited: Postmortem INC-2026-031: Duplicate Card Charges
 - Missing: who owned each change
-- **Grade:** ___
+- **Grade:** partly correct (both changes and what each changed are right; owners missing (it says so))
 
 ### agent: partial
 
@@ -134,7 +149,7 @@ The incident was caused by the combination of CHG-0412 and CHG-0419 [S5]. CHG-04
 
 - Cited: Postmortem INC-2026-031: Duplicate Card Charges
 - Missing: who owned each change
-- **Grade:** ___
+- **Grade:** partly correct (same: owners missing)
 
 ## co_multi_02 · multi_doc · expected: answer
 
@@ -149,14 +164,14 @@ The incident was caused by the combination of CHG-0412 and CHG-0419 [S5]. CHG-04
 The SDK retried payment requests after 15 minutes using the original idempotency key [S1], but a recent change (CHG-0412) had lowered the idempotency-key TTL in payments-api from 24 hours to 10 minutes [S2]. Because the key had already expired by the time the retry arrived, payments-api treated the retry as a new payment and charged the card again [S2].
 
 - Cited: NovaPay Server SDK - Retry Behaviour, Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___
+- **Grade:** correct (15-minute retry vs 10-minute key lifetime, key expired, new payment)
 
 ### agent: answered
 
 The SDK retried the payment after a timeout, but the idempotency-key TTL in payments-api had been lowered from 24 hours to 10 minutes [S4]. Because the key had already expired by the time the retry occurred, the system treated the retry as a brand-new payment and charged the card a second time [S4].
 
 - Cited: Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___
+- **Grade:** partly correct (expired key is right, but it leaves out the 15-minute retry delay that explains why)
 
 ## co_multi_03 · multi_doc · expected: answer
 
@@ -171,14 +186,14 @@ The SDK retried the payment after a timeout, but the idempotency-key TTL in paym
 Customers were charged because api-gateway has a timeout of 5 seconds, whereas payments-api waits up to 8 seconds for the fraud-scorer service [S1][S3][S5]. When fraud-scorer v7 suffered high latency under load, api-gateway gave up and returned a 504 error to the merchant after 5 seconds, while payments-api continued processing and successfully captured the payment [S1].
 
 - Cited: Postmortem INC-2026-031: Duplicate Card Charges, api gateway service doc
-- **Grade:** ___
+- **Grade:** correct
 
 ### agent: answered
 
 Customers were charged because api-gateway timed out and returned HTTP 504 to the merchant while payments-api continued processing and successfully captured the payment [S2]. The merchant's SDK later retried the request, but because the idempotency-key TTL had been lowered to 10 minutes, payments-api treated the retry as a new payment and charged the card a second time [S2]. Regarding timeouts, the api-gateway timeout is set to 5 seconds, whereas the payments-api waits up to 8 seconds for fraud-scorer [S1].
 
 - Cited: Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___
+- **Grade:** correct (extra detail about the retry is fine)
 
 ## co_multi_04 · multi_doc · expected: answer
 
@@ -194,14 +209,14 @@ Customers were charged because api-gateway timed out and returned HTTP 504 to th
 
 - Cited: (nothing)
 - Missing: No document is close enough to the question.
-- **Grade:** ___
+- **Grade:** wrong (blocked by the similarity gate; no answer)
 
 ### agent: answered
 
 The change that slowed down fraud-scorer was introduced by change request CHG-0419 [S2], and the runbook explaining how to undo it is the fraud-scorer rollback runbook [S2] (titled "Runbook: roll back the fraud-scorer model") [S6].
 
 - Cited: fraud-scorer Service Documentation, Runbook: roll back the fraud-scorer model
-- **Grade:** ___
+- **Grade:** correct (right runbook and CHG-0419)
 
 ## co_multi_05 · multi_doc · expected: answer
 
@@ -216,7 +231,7 @@ The change that slowed down fraud-scorer was introduced by change request CHG-04
 Following INC-2026-031, several follow-up actions were agreed: load-testing fraud-scorer models at peak traffic before release (addressed by CHG-0419) [S2][S3][S5][S6]; raising the idempotency-key TTL above the longest SDK retry window (addressed by CHG-0412) [S1][S3]; making the api-gateway timeout and payments-api timeout for fraud-scorer consistent (addressed by CHG-0419 and the timeouts mentioned in [S6]) [S3][S6]; adding an alert on the rate of HTTP 504 for POST /v1/payments (addressed by the 504 errors from CHG-0419) [S3][S6]; adding a CAB check of client retry behavior for idempotency changes (addressed by CHG-0412) [S3][S5][S6]; and updating the payments-api service documentation after CHG-0412 and CHG-0423 [S1][S3].
 
 - Cited: on call timeline INC 2026 031, Email to Affected Merchants: Duplicate Charges on 18 March, INC-2026-031 action item tracker, Change Advisory Board Notes - March 2026, Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___
+- **Grade:** partly correct (all six actions listed, four mapped right; AI-3 and AI-4 are tied to CHG-0419, but they address neither change directly)
 
 ### agent: partial
 
@@ -224,7 +239,7 @@ The agreed follow-up actions (action items) following INC-2026-031 include raisi
 
 - Cited: Incident Report INC-2026-031, INC-2026-031 action item tracker
 - Missing: which of the two causing changes each follow-up action addresses
-- **Grade:** ___
+- **Grade:** partly correct (all six actions listed, but not mapped to the two changes (it says so))
 
 ## co_conflict_01 · contradiction · expected: flag_conflict
 
@@ -240,14 +255,14 @@ Sources disagree on the exact number of card payments charged twice, stating eit
 
 - Cited: Incident Report INC-2026-031, Postmortem INC-2026-031: Duplicate Card Charges, Memo: Refunds for INC-2026-031
 - Conflict, number of duplicate card payments and total amount: 1,284 card payments were charged twice, totaling EUR 186,420 (S1, S2) vs 1,317 duplicate charges were refunded, totaling EUR 191,236.50 (S7)
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** correct (1,284 vs 1,317) · **Conflict flagged:** yes
 
 ### agent: answered
 
 During the 18 March incident, 1,284 card payments were charged twice [S1][S2].
 
 - Cited: Incident Report INC-2026-031, Postmortem INC-2026-031: Duplicate Card Charges
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** partly correct (1,284 is right per the incident report, but the finance memo's 1,317 is hidden) · **Conflict flagged:** no
 
 ## co_conflict_02 · contradiction · expected: flag_conflict
 
@@ -264,7 +279,7 @@ The incident report and postmortem state that 1,284 duplicate charges totaled EU
 - Cited: Incident Report INC-2026-031, Memo: Refunds for INC-2026-031, Postmortem INC-2026-031: Duplicate Card Charges
 - Conflict, total number and amount of duplicate charges: 1,284 card payments were charged twice, totaling EUR 186,420 (S1, S3) vs 1,317 duplicate charges were refunded, totaling EUR 191,236.50 (S2)
 - Missing: Runbook S8 does not provide the answer to the question.
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** correct (EUR 186,420 vs EUR 191,236.50) · **Conflict flagged:** yes
 
 ### agent: answered
 
@@ -272,7 +287,7 @@ The sources disagree on the total amount: the incident report and postmortem sta
 
 - Cited: Memo: Refunds for INC-2026-031, Incident Report INC-2026-031, Postmortem INC-2026-031: Duplicate Card Charges
 - Conflict, total amount of duplicate charges: EUR 186,420 (S2, S3) vs EUR 191,236.50 (S1)
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** correct · **Conflict flagged:** yes
 
 ## co_conflict_03 · contradiction · expected: flag_conflict
 
@@ -288,7 +303,7 @@ Initially, idempotency keys were kept for 24 hours [S1]. The TTL was later lower
 
 - Cited: payments-api service documentation, Postmortem INC-2026-031: Duplicate Card Charges, INC-2026-031 action item tracker, Change Advisory Board Notes - March 2026
 - Conflict, duration of payments-api idempotency key TTL: Idempotency keys are kept for 24 hours. (S1) vs The idempotency-key TTL in payments-api was lowered from 24 hours to 10 minutes on 9 March (CHG-0412). (S2, S7) vs The idempotency-key TTL was raised to 48 hours on 18 March (CHG-0423). (S5)
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** correct (24 hours vs 10 minutes vs 48 hours) · **Conflict flagged:** yes
 
 ### agent: answered
 
@@ -296,7 +311,7 @@ The duration payments-api keeps idempotency keys has changed over time: original
 
 - Cited: payments-api service documentation, Postmortem INC-2026-031: Duplicate Card Charges, Change Advisory Board Notes - March 2026, Production change log - March 2026, INC-2026-031 action item tracker
 - Conflict, payments-api idempotency key TTL duration: Idempotency keys are kept for 24 hours. (S1) vs CHG-0412 lowered the idempotency-key TTL in payments-api from 24 hours to 10 minutes. (S2, S6) vs The idempotency-key TTL was raised from 10 minutes to 48 hours (CHG-0423). (S7, S8)
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** correct · **Conflict flagged:** yes
 
 ## co_conflict_04 · contradiction · expected: flag_conflict
 
@@ -313,7 +328,7 @@ The first duplicate charge was captured at 09:40 UTC [S1][S3][S8], while the Nov
 - Cited: Incident Report INC-2026-031, on call timeline INC 2026 031, NovaPay status page - 18 March 2026, Postmortem INC-2026-031: Duplicate Card Charges
 - Conflict, When the incident or duplicate charges started: Duplicate charges started at 09:40 UTC (S1, S3, S8) vs The incident started at 10:15 UTC (S5)
 - Missing: A single agreed-upon start time for the incident due to conflicting sources.
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** correct (09:40 vs 10:15) · **Conflict flagged:** yes
 
 ### agent: answered
 
@@ -321,7 +336,7 @@ The sources disagree on the exact start time of the payment incident on 18 March
 
 - Cited: Incident Report INC-2026-031, on call timeline INC 2026 031, NovaPay status page - 18 March 2026
 - Conflict, When the payment incident or duplicate charges started on 18 March: The fraud-scorer latency started rising at 09:25 UTC, and the first duplicate charge was captured at 09:40 UTC. (S1, S3) vs Some card payments were captured twice starting at 10:15 UTC. (S5)
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** correct · **Conflict flagged:** yes
 
 ## co_conflict_05 · contradiction · expected: flag_conflict
 
@@ -336,14 +351,14 @@ The sources disagree on the exact start time of the payment incident on 18 March
 The 18 March incident lasted from 09:25 to 13:05 UTC, spanning a duration of three hours and forty minutes [S3][S5].
 
 - Cited: on call timeline INC 2026 031, Incident Report INC-2026-031
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** partly correct (3 h 40 min from 09:25 is supported, but the 10:15 status-page start is missing) · **Conflict flagged:** no
 
 ### agent: answered
 
 The 18 March incident (INC-2026-031) began with latency starting at 09:25 UTC (or with the first duplicate charge at 09:40 UTC) and was resolved at 13:05 UTC, lasting a total of three hours and forty minutes (or three hours and twenty-five minutes from the first duplicate charge) [S2][S4].
 
 - Cited: Incident Report INC-2026-031, on call timeline INC 2026 031
-- **Grade:** ___ · **Conflict flagged:** ___
+- **Grade:** partly correct (gives 3 h 25 min from 09:40, but misses the 10:15 / 2 h 50 min side) · **Conflict flagged:** no
 
 ## co_none_01 · unanswerable · expected: insufficient
 
@@ -359,7 +374,7 @@ CHG-0412 reduced the idempotency-key TTL in Redis from 24 hours to 10 minutes to
 
 - Cited: Production change log - March 2026
 - Missing: the exact amount of Redis memory saved by CHG-0412
-- **Grade:** ___
+- **Grade:** partly correct (text correctly says the amount is missing, but status is partial instead of insufficient)
 
 ### agent: partial
 
@@ -367,7 +382,7 @@ Change CHG-0412 reduced the idempotency-key TTL in Redis from 24 hours to 10 min
 
 - Cited: Change Advisory Board Notes - March 2026, Production change log - March 2026
 - Missing: The exact amount of Redis memory saved by CHG-0412
-- **Grade:** ___
+- **Grade:** partly correct (same: right text, wrong status)
 
 ## co_none_02 · unanswerable · expected: insufficient
 
@@ -383,7 +398,7 @@ Change CHG-0412 reduced the idempotency-key TTL in Redis from 24 hours to 10 min
 
 - Cited: (nothing)
 - Missing: whether a regulator was notified about incident INC-2026-031
-- **Grade:** ___
+- **Grade:** correct
 
 ### agent: insufficient
 
@@ -391,7 +406,7 @@ Change CHG-0412 reduced the idempotency-key TTL in Redis from 24 hours to 10 min
 
 - Cited: (nothing)
 - Missing: Whether a regulator was notified about incident INC-2026-031.
-- **Grade:** ___
+- **Grade:** correct
 
 ## co_none_03 · unanswerable · expected: insufficient
 
@@ -407,7 +422,7 @@ The sources do not mention an outage in February 2026, but describe an incident 
 
 - Cited: Incident Report INC-2026-031, Postmortem INC-2026-031: Duplicate Card Charges
 - Missing: any payment outage in February 2026
-- **Grade:** ___
+- **Grade:** partly correct (says there's no February outage, but status is partial and it adds the March incident's cause)
 
 ### agent: partial
 
@@ -415,7 +430,7 @@ The sources do not mention an outage in February 2026, but describe an incident 
 
 - Cited: Email to Affected Merchants: Duplicate Charges on 18 March, Incident Report INC-2026-031
 - Missing: Any NovaPay payment outage occurring in February 2026
-- **Grade:** ___
+- **Grade:** partly correct (same: right text, wrong status)
 
 ## co_none_04 · unanswerable · expected: insufficient
 
@@ -431,7 +446,7 @@ The sources do not mention an outage in February 2026, but describe an incident 
 
 - Cited: (nothing)
 - Missing: The fee that NovaPay charges merchants per card transaction is not mentioned in the provided sources.
-- **Grade:** ___
+- **Grade:** correct
 
 ### agent: insufficient
 
@@ -439,7 +454,7 @@ The sources do not mention an outage in February 2026, but describe an incident 
 
 - Cited: (nothing)
 - Missing: The provided sources do not state the fee NovaPay charges merchants per card transaction.
-- **Grade:** ___
+- **Grade:** correct
 
 ## co_none_05 · unanswerable · expected: insufficient
 
@@ -455,7 +470,7 @@ The sources do not mention an outage in February 2026, but describe an incident 
 
 - Cited: (nothing)
 - Missing: The programming language that payments-api is written in
-- **Grade:** ___
+- **Grade:** correct
 
 ### agent: insufficient
 
@@ -463,4 +478,4 @@ The sources do not mention an outage in February 2026, but describe an incident 
 
 - Cited: (nothing)
 - Missing: The programming language that payments-api is written in is not specified in the sources.
-- **Grade:** ___
+- **Grade:** correct

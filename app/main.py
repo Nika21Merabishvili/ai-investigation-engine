@@ -11,7 +11,7 @@ from uuid import UUID
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, StringConstraints
 
 from app import agent, answer, config, db, ingest
@@ -19,6 +19,8 @@ from app.llm import LLMUnavailable
 
 log = logging.getLogger(__name__)
 app = FastAPI(title="AI Investigation Engine")
+
+INDEX_HTML = Path(__file__).resolve().parent.parent / "static" / "index.html"  # independent of the working directory
 
 
 @app.exception_handler(LLMUnavailable)
@@ -30,6 +32,11 @@ async def llm_unavailable(request: Request, error: LLMUnavailable):
 async def database_unreachable(request: Request, error: psycopg.OperationalError):
     log.warning("Database error on %s: %s", request.url.path, error)  # full reason in the logs only
     return JSONResponse(status_code=503, content={"detail": "database unreachable"})
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(INDEX_HTML)
 
 
 @app.get("/health")

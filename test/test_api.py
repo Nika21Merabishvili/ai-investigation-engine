@@ -43,6 +43,15 @@ def upload(filename, data):
     return client.post("/api/documents", files={"file": (filename, data, "application/octet-stream")})
 
 
+# --- GET / --------------------------------------------------------------------
+
+def test_index_serves_the_page():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "AI Investigation Engine" in response.text
+
+
 # --- POST /api/documents ------------------------------------------------------
 
 def test_oversized_upload_is_413(monkeypatch):

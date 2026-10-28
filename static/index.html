@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Investigation Engine</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --text: #1d2228;
+    --muted: #5d6670;
+    --border: #d8dce1;
+    --accent: #2457c5;
+    --accent-soft: #e6edfb;
+    --highlight: #fff4c2;
+    --danger: #b3261e;
+    --error-bg: #fdecea;
+    --ok: #1e7a3c;
+    --warn: #9a6200;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15181c;
+      --panel: #1e2227;
+      --text: #e4e7eb;
+      --muted: #9aa3ad;
+      --border: #363c44;
+      --accent: #7ea6ff;
+      --accent-soft: #24304a;
+      --highlight: #4a4120;
+      --danger: #ff8a80;
+      --error-bg: #3d1f1d;
+      --ok: #6fd18f;
+      --warn: #f0c060;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 16px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  section, .box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .box { background: transparent; }
+  [hidden] { display: none !important; }
+
+  textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: 8px;
+    font: inherit;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    resize: vertical;
+  }
+  fieldset { border: 0; padding: 0; margin: 8px 0 12px; display: flex; gap: 16px; align-items: center; }
+  legend { float: left; margin-right: 8px; color: var(--muted); }
+  button {
+    font: inherit;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--danger); border-color: var(--danger); padding: 2px 10px; }
+  .muted { color: var(--muted); }
+  .error {
+    background: var(--error-bg);
+    color: var(--danger);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 12px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid currentColor;
+    margin-bottom: 8px;
+  }
+  .badge.answered { color: var(--ok); }
+  .badge.partial { color: var(--warn); }
+  .badge.insufficient, .badge.unknown { color: var(--muted); }
+  .answer-text { white-space: pre-wrap; margin: 0; }
+  button.marker {
+    padding: 0 4px;
+    margin: 0 1px;
+    font-size: 0.85em;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: transparent;
+    vertical-align: baseline;
+  }
+
+  .conflict + .conflict { margin-top: 12px; }
+  .conflict ul, .box ul { margin: 4px 0 0; padding-left: 20px; }
+
+  details { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; }
+  details + details { margin-top: 8px; }
+  details.highlight { background: var(--highlight); }
+  summary { cursor: pointer; font-weight: 600; }
+  .chunk-text { white-space: pre-wrap; margin: 8px 0 0; font-size: 0.95rem; }
+
+  .upload-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI Investigation Engine</h1>
+
+  <!-- Ask -->
+  <section>
+    <h2>Ask a question</h2>
+    <form id="ask-form">
+      <label for="question" class="muted">Question</label>
+      <textarea id="question" name="question" maxlength="1000" required
+                placeholder="What caused the March payment incident?"></textarea>
+      <fieldset>
+        <legend>Mode</legend>
+        <label><input type="radio" name="mode" value="simple" checked> Simple</label>
+        <label><input type="radio" name="mode" value="agent"> Agent</label>
+      </fieldset>
+      <button type="submit" id="ask-button">Ask</button>
+      <span id="thinking" class="muted" hidden>
+        Thinking… (first request after idle can take ~1 min on Render free tier)
+      </span>
+    </form>
+    <div id="ask-error" class="error" role="alert" hidden></div>
+  </section>
+
+  <!-- Answer, conflicts, missing, sources -->
+  <section id="answer-section" hidden aria-live="polite">
+    <h2>Answer</h2>
+    <span id="status-badge" class="badge"></span>
+    <p id="answer-text" class="answer-text"></p>
+
+    <div id="conflicts-box" class="box" hidden>
+      <h2>Conflicts</h2>
+      <div id="conflicts-list"></div>
+    </div>
+
+    <div id="missing-box" class="box" hidden>
+      <h2>Missing</h2>
+      <ul id="missing-list"></ul>
+    </div>
+
+    <h2>Sources</h2>
+    <p id="no-sources" class="muted" hidden>No sources cited.</p>
+    <div id="sources-list"></div>
+  </section>
+
+  <!-- Documents -->
+  <section>
+    <h2>Documents</h2>
+    <form id="upload-form" class="upload-row">
+      <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md">
+      <button type="submit" id="upload-button">Upload</button>
+      <span id="upload-status" class="muted" aria-live="polite"></span>
+    </form>
+    <div id="docs-error" class="error" role="alert" hidden></div>
+    <p id="docs-count" class="muted"></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Title</th><th>Format</th><th>Version</th><th>Protected</th><th></th></tr>
+        </thead>
+        <tbody id="docs-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+  // Every piece of model output, document text or title goes in through textContent, never innerHTML.
+  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;  // same limit as config.MAX_UPLOAD_BYTES
+  const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];
+  const STATUSES = ["answered", "partial", "insufficient"];
+  const MARKER = /^\[S\d+\]$/;
+
+  const $ = (id) => document.getElementById(id);
+  let sourceNodes = new Map();  // "S1" -> its <details> in the Sources panel
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  // ---------- API ----------
+
+  async function api(path, options) {
+    let response;
+    try {
+      response = await fetch(path, options);
+    } catch {
+      throw new Error("Could not reach the server. Check your connection and try again.");
+    }
+    let body = null;
+    try { body = await response.json(); } catch { /* not JSON, e.g. a proxy error page */ }
+    if (!response.ok) throw new Error(errorMessage(response, body));
+    return body;
+  }
+
+  // FastAPI's "detail" is a string for our own errors and a list of problems for 422 validation errors.
+  function errorMessage(response, body) {
+    const detail = body && body.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((problem) => {
+        const where = Array.isArray(problem.loc) ? problem.loc.filter((p) => p !== "body").join(".") : "";
+        return (where ? where + ": " : "") + (problem.msg || "invalid value");
+      }).join("; ");
+    }
+    return `Request failed (${response.status} ${response.statusText}).`;
+  }
+
+  function showError(box, message) {
+    box.textContent = message;
+    box.hidden = false;
+  }
+
+  function clearError(box) {
+    box.textContent = "";
+    box.hidden = true;
+  }
+
+  // ---------- Ask ----------
+
+  $("ask-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const errorBox = $("ask-error");
+    const question = $("question").value.trim();
+    if (!question) {
+      showError(errorBox, "Type a question first.");
+      return;
+    }
+    const mode = event.target.elements.mode.value;
+
+    clearError(errorBox);
+    $("answer-section").hidden = true;
+    $("ask-button").disabled = true;
+    $("thinking").hidden = false;
+    try {
+      const result = await api("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, mode }),
+      });
+      renderAnswer(result);
+    } catch (error) {
+      showError(errorBox, error.message);
+    } finally {
+      $("ask-button").disabled = false;
+      $("thinking").hidden = true;
+    }
+  });
+
+  function renderAnswer(result) {
+    const citations = new Map((result.citations || []).map((c) => [c.id, c]));
+
+    const badge = $("status-badge");
+    const status = STATUSES.includes(result.status) ? result.status : "unknown";
+    badge.className = "badge " + status;
+    badge.textContent = result.status;
+
+    const answerText = $("answer-text");
+    if (result.answer) {
+      answerText.replaceChildren(...withMarkers(result.answer, citations));
+    } else {
+      answerText.replaceChildren(el("span", "muted", "No answer from the available sources."));
+    }
+
+    renderSources(result.citations || []);
+    renderConflicts(result.conflicts || [], citations);
+    renderMissing(result.missing || []);
+    $("answer-section").hidden = false;
+  }
+
+  // "Fact [S1][S3]." -> text, button, button, text. Markers without a citation stay plain text.
+  function withMarkers(text, citations) {
+    const nodes = [];
+    for (const part of text.split(/(\[S\d+\])/)) {
+      const id = part.slice(1, -1);
+      if (MARKER.test(part) && citations.has(id)) {
+        nodes.push(markerButton(id));
+      } else if (part) {
+        nodes.push(document.createTextNode(part));
+      }
+    }
+    return nodes;
+  }
+
+  function markerButton(id) {
+    const button = el("button", "marker", `[${id}]`);
+    button.type = "button";
+    button.title = "Show source " + id;
+    button.addEventListener("click", () => showSource(id));
+    return button;
+  }
+
+  function renderSources(citations) {
+    sourceNodes = new Map();
+    const list = $("sources-list");
+    list.replaceChildren();
+    for (const citation of citations) {
+      const details = el("details");
+      details.append(
+        el("summary", "", `[${citation.id}] ${citation.document_title}`),
+        el("p", "chunk-text", citation.text),
+      );
+      sourceNodes.set(citation.id, details);
+      list.append(details);
+    }
+    $("no-sources").hidden = citations.length > 0;
+  }
+
+  function showSource(id) {
+    const details = sourceNodes.get(id);
+    if (!details) return;
+    for (const node of sourceNodes.values()) node.classList.remove("highlight");
+    details.open = true;
+    details.classList.add("highlight");
+    details.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function renderConflicts(conflicts, citations) {
+    const list = $("conflicts-list");
+    list.replaceChildren();
+    for (const conflict of conflicts) {
+      const block = el("div", "conflict");
+      block.append(el("strong", "", conflict.topic || "Conflict"));
+      const positions = el("ul");
+      for (const position of conflict.positions || []) {
+        const item = el("li", "", position.claim + " ");
+        for (const id of position.sources || []) {
+          item.append(citations.has(id) ? markerButton(id) : document.createTextNode(`[${id}]`));
+        }
+        positions.append(item);
+      }
+      block.append(positions);
+      list.append(block);
+    }
+    $("conflicts-box").hidden = conflicts.length === 0;
+  }
+
+  function renderMissing(missing) {
+    $("missing-list").replaceChildren(...missing.map((text) => el("li", "", text)));
+    $("missing-box").hidden = missing.length === 0;
+  }
+
+  // ---------- Documents ----------
+
+  async function loadDocuments() {
+    try {
+      const data = await api("/api/documents");
+      $("docs-body").replaceChildren(...data.documents.map(documentRow));
+      $("docs-count").textContent = data.documents.length < data.total
+        ? `Showing ${data.documents.length} of ${data.total} documents (newest first).`
+        : `${data.total} documents.`;
+    } catch (error) {
+      showError($("docs-error"), "Could not load documents: " + error.message);
+    }
+  }
+
+  function documentRow(doc) {
+    const row = el("tr");
+    row.append(
+      el("td", "", doc.title),
+      el("td", "", doc.file_format),
+      el("td", "num", String(doc.version)),
+      el("td", "", doc.is_protected ? "Yes" : "No"),
+    );
+    const button = el("button", "secondary", "Delete");
+    button.type = "button";
+    button.disabled = doc.is_protected;
+    if (doc.is_protected) button.title = "Protected documents cannot be deleted";
+    button.addEventListener("click", () => deleteDocument(doc, button));
+    const cell = el("td");
+    cell.append(button);
+    row.append(cell);
+    return row;
+  }
+
+  async function deleteDocument(doc, button) {
+    if (!confirm(`Delete "${doc.title}"? This cannot be undone.`)) return;
+    const errorBox = $("docs-error");
+    clearError(errorBox);
+    button.disabled = true;
+    try {
+      await api(`/api/documents/${encodeURIComponent(doc.id)}`, { method: "DELETE" });
+      $("upload-status").textContent = `Deleted "${doc.title}".`;
+    } catch (error) {
+      showError(errorBox, error.message);
+    }
+    await loadDocuments();
+  }
+
+  $("upload-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const errorBox = $("docs-error");
+    const status = $("upload-status");
+    clearError(errorBox);
+    status.textContent = "";
+
+    const file = $("file-input").files[0];
+    if (!file) {
+      showError(errorBox, "Choose a file first.");
+      return;
+    }
+    const name = file.name.toLowerCase();
+    if (!ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext))) {
+      showError(errorBox, "Unsupported file type: upload a PDF, DOCX, TXT or MD file.");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      showError(errorBox, "File is larger than 5 MB.");
+      return;
+    }
+
+    const form = new FormData();
+    form.append("file", file);
+    $("upload-button").disabled = true;
+    status.textContent = "Uploading and indexing…";
+    try {
+      const result = await api("/api/documents", { method: "POST", body: form });
+      status.textContent = uploadMessage(result);
+      $("file-input").value = "";
+      await loadDocuments();
+    } catch (error) {
+      status.textContent = "";
+      showError(errorBox, error.message);
+    } finally {
+      $("upload-button").disabled = false;
+    }
+  });
+
+  function uploadMessage(result) {
+    if (result.status === "added") return `Added "${result.title}" (${result.chunks} chunks).`;
+    if (result.status === "updated") return `Updated "${result.title}" to version ${result.version} (${result.chunks} chunks).`;
+    return `"${result.title}" is already stored with the same content; nothing changed.`;
+  }
+
+  loadDocuments();
+</script>
+</body>
+</html>

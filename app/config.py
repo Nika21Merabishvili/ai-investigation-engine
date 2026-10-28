@@ -20,6 +20,8 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 LLM_TIMEOUT_SECONDS = 30.0
 LLM_RETRY_WAITS = (2, 4, 8)  # seconds to wait before retry 1, 2 and 3
 
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # POST /api/documents answers 413 above this
+
 # If the best chunk's cosine similarity is below this, answer "insufficient" without calling the LLM.
 # 0.0 switches the check off until Step 6 picks a real value.
 MIN_DENSE_SIMILARITY = float(os.getenv("MIN_DENSE_SIMILARITY", "0.0"))

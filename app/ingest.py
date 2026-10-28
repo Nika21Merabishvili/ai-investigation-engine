@@ -6,6 +6,7 @@ content_hash() fingerprints the text; save_document() uses it to skip duplicates
 and to update a document when the same file name comes back with new content.
 paragraph_chunks() and fixed_chunks() split the text into "Title: ...\n<body>" chunks.
 ingest() saves a document with its paragraph chunks and their embeddings, all or nothing.
+get_document(), list_documents() and delete_document() are the document queries of the API.
 """
 import hashlib
 import io
@@ -19,6 +20,7 @@ import docx
 import psycopg
 from docx.table import Table
 from pgvector import HalfVector
+from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
@@ -275,3 +277,52 @@ def ingest(conn: psycopg.Connection, doc: LoadedDocument, source: str, protected
                  for i, (text, vector) in enumerate(zip(chunks, vectors))],
             )
     return status, doc_id, len(chunks)
+
+
+# ---------- Documents for the API ----------
+
+UPLOAD_SOURCE = "upload"    # source of every file sent to POST /api/documents
+HIDDEN_SOURCE = "hotpotqa"  # 50,000+ rows: left out of the document list unless asked for by ?source=
+
+DOCUMENT_COLUMNS = "id, title, source, file_format, version, is_protected, updated_at"
+
+
+def is_protected_name(conn: psycopg.Connection, source: str, file_name: str) -> bool:
+    """True if a protected document has this source and file name, so ingest() would update it."""
+    row = conn.execute(
+        "SELECT 1 FROM documents WHERE source = %s AND external_id = %s AND is_protected",
+        (source, file_name),
+    ).fetchone()
+    return row is not None
+
+
+def get_document(conn: psycopg.Connection, document_id: UUID) -> dict | None:
+    """One document's row (without text or metadata), or None if the id doesn't exist."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        return cur.execute(f"SELECT {DOCUMENT_COLUMNS} FROM documents WHERE id = %s", (document_id,)).fetchone()
+
+
+def list_documents(conn: psycopg.Connection, source: str | None, limit: int, offset: int) -> tuple[int, list[dict]]:
+    """One page of documents, newest first, and the total count. source=None means every source but HotpotQA."""
+    if source is None:
+        where, params = "source <> %s", [HIDDEN_SOURCE]
+    else:
+        where, params = "source = %s", [source]
+    with conn.cursor(row_factory=dict_row) as cur:
+        total = cur.execute(f"SELECT count(*) AS n FROM documents WHERE {where}", params).fetchone()["n"]
+        rows = cur.execute(
+            f"""SELECT {DOCUMENT_COLUMNS} FROM documents WHERE {where}
+                ORDER BY updated_at DESC, id    -- id breaks ties, so pages don't overlap
+                LIMIT %s OFFSET %s""",
+            [*params, limit, offset],
+        ).fetchall()
+    return total, rows
+
+
+def delete_document(conn: psycopg.Connection, document_id: UUID) -> bool:
+    """Delete an unprotected document; its chunks go with it (ON DELETE CASCADE).
+    Returns False if nothing was deleted: the id doesn't exist or the document is protected."""
+    row = conn.execute(
+        "DELETE FROM documents WHERE id = %s AND NOT is_protected RETURNING id", (document_id,)
+    ).fetchone()
+    return row is not None
